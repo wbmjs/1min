@@ -1,0 +1,6 @@
+name = "1min-ai-chat-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# API_KEY = "your-1min-ai-api-key"
