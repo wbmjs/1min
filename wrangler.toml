@@ -1,6 +1,8 @@
 name = "hd"
 main = "worker.js"
 compatibility_date = "2024-01-01"
-
+[observability.logs]
+enabled = false
+invocation_logs = true
 [vars]
 # API_KEY = "your-1min-ai-api-key"
