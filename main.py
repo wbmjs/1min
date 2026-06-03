@@ -3,9 +3,8 @@ import json
 import requests
 from sseclient import SSEClient
 from fastapi import FastAPI, Request
-from fastapi.responses import Streaming
+from fastapi.responses import StreamingResponse
 
-Response
 app = FastAPI(title="1min->OpenAI中转代理")
 MIN_API_KEY = os.getenv("MIN_API_KEY", "")
 MIN_BASE_URL = "https://api.1min.ai/api/chat-with-ai"
@@ -45,6 +44,7 @@ async def chat_completions(request: Request):
         "API-KEY": MIN_API_KEY,
         "Content-Type": "application/json"
     }
+
     if stream:
         resp = requests.post(f"{MIN_BASE_URL}?isStreaming=true", json=payload, headers=headers, stream=True)
         def stream_generator():
@@ -87,4 +87,4 @@ async def chat_completions(request: Request):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0")
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
