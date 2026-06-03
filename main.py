@@ -6,12 +6,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 
 app = FastAPI(title="1min->OpenAI中转代理")
-# 从平台环境变量读取密钥，禁止硬编码
 MIN_API_KEY = os.getenv("MIN_API_KEY", "")
 MIN_BASE_URL = "https://api.1min.ai/api/chat-with-ai"
 
 def merge_messages(messages: list) -> str:
-    """OpenAI messages拼接为prompt文本"""
     prompt = ""
     for msg in messages:
         role = msg["role"]
@@ -46,7 +44,7 @@ async def chat_completions(request: Request):
         "API-KEY": MIN_API_KEY,
         "Content-Type": "application/json"
     }
-    # 流式SSE处理
+
     if stream:
         resp = requests.post(f"{MIN_BASE_URL}?isStreaming=true", json=payload, headers=headers, stream=True)
         def stream_generator():
@@ -66,7 +64,6 @@ async def chat_completions(request: Request):
                 elif evt.event == "done":
                     yield "data: [DONE]\n\n"
         return StreamingResponse(stream_generator(), media="text/event-stream")
-    # 非流式
     else:
         resp = requests.post(MIN_BASE_URL, json=payload, headers=headers)
         resp_json = resp.json()
@@ -89,5 +86,5 @@ async def chat_completions(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000)) # Koyeb自动注入PORT环境
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
