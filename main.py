@@ -1,7 +1,6 @@
 import os
 import json
 import requests
-from sseclient import SSEClient
 from fastapi import FastAPI, Request
 
 app = FastAPI(title="1min->OpenAI中转代理")
@@ -23,15 +22,13 @@ async def chat_completions(request: Request):
         model = req_data.get("model")
         messages = req_data.get("messages", [])
         stream = req_data.get("stream", False)
-        # 兼容部分客户端无extra_body，取不到默认False
         enable_search = req_data.get("extra_body", {}).get("web_search", False)
 
-        prompt_text = merge_messages(messages)
         payload = {
             "type": "UNIFY_CHAT_WITH_AI",
             "model": model,
             "promptObject": {
-                "prompt": prompt_text,
+                "prompt": merge_messages(messages),
                 "settings": {
                     "webSearchSettings": {
                         "webSearch": enable_search,
@@ -41,34 +38,28 @@ async def chat_completions(request: Request):
                 }
             }
         }
-        headers = {
-            "API-KEY": MIN_API_KEY,
-            "Content-Type": "application/json"
-        }
-        # 校验密钥
+        headers = {"API-KEY": MIN_API_KEY, "Content-Type": "application/json"}
         if not MIN_API_KEY:
-            return {"success":False,"error":{"code":"UNAUTHORIZED","message":"API KEY为空"}}
+            return {"success":False,"error":"Missing API KEY"}
 
         if stream:
+            from sseclient import SSEClient
+            from fastapi.responses import StreamingResponse
             resp = requests.post(f"{MIN_BASE_URL}?isStreaming=true", json=payload, headers=headers, stream=True)
             def stream_generator():
                 chunk_id = f"chatcmpl-xxxx"
-                yield_data_prefix = "data: "
                 for evt in SSEClient(resp).events():
                     if evt.event == "content":
                         d = json.loads(evt.data)
-                        openai_chunk = {
-                            "id": chunk_id,
-                            "object": "chat.completion.chunk",
-                            "created": 0,
-                            "model": model,
-                            "choices": [{"index": 0, "delta": {"content": d["content"]}, "finish_reason": None}]
+                        chunk = {
+                            "id": chunk_id,"object":"chat.completion.chunk","created":0,"model":model,
+                            "choices":[{"index":0,"delta":{"content":d["content"]},"finish_reason":None}]
                         }
-                        yield f"{yield_data_prefix}{json.dumps(openai)}\n\n"
+                        yield f"data: {json.dumps(chunk)}\n\n"
                     elif evt.event == "done":
                         yield "data: [DONE]\n\n"
-            from fastapi.responses import StreamingResponse
-            return StreamingResponse(stream_generator(), media="text/event-stream")
+            # 重点修改：media → media_type
+            return StreamingResponse(stream_generator(), media_type="text/event-stream")
         else:
             resp = requests.post(MIN_BASE_URL, json=payload, headers=headers)
             resp_json = resp.json()
@@ -78,13 +69,7 @@ async def chat_completions(request: Request):
                 "object": "chat.completion",
                 "created": 0,
                 "model": model,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {"role": "assistant", "content": ans_content},
-                        "finish_reason": "stop"
-                    }
-                ],
+                "choices": [{"index":0,"message":{"role":"assistant","content":ans_content},"finish_reason":"stop"}],
                 "usage": None
             }
             return openai_resp
