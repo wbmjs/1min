@@ -87,7 +87,7 @@ async def chat_completions(request: Request):
                 ],
                 "usage": None
             }
-            return openai
+            return openai_resp
     except Exception as e:
         return {"error": str(e)}
 
